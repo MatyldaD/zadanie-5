@@ -1,73 +1,89 @@
 import './style.css'
-import dayjs from 'dayjs'
+import { supabase } from './db.js'
 
 document.querySelector('#app').innerHTML = `
-  <div class="p-10">
-    <h1 class="text-2xl font-bold text-blue-500 mb-6">
-      Kalkulator dni od urodzenia
+  <div class="max-w-3xl mx-auto p-6">
+    <h1 class="text-3xl font-bold text-blue-600 mb-6">
+      Lista artykułów
     </h1>
 
-    <form id="birthForm" class="flex gap-4">
-      <input
-        type="date"
-        id="birthDate"
-        class="border p-2"
-        required
-      />
+    <div id="articles" class="space-y-4"></div>
 
-      <button
-        type="submit"
-        class="bg-blue-300 p-4 rounded"
-      >
-        Submit
+    <h2 class="text-2xl font-bold mt-8 mb-4">
+      Dodaj nowy artykuł
+    </h2>
+
+    <form id="articleForm" class="flex flex-col gap-3">
+      <input class="border p-2" id="title" placeholder="Tytuł" required />
+      <input class="border p-2" id="subtitle" placeholder="Podtytuł" required />
+      <input class="border p-2" id="author" placeholder="Autor" required />
+      <textarea class="border p-2" id="content" placeholder="Treść" required></textarea>
+
+      <button class="bg-blue-600 text-white p-2 rounded" type="submit">
+        Dodaj artykuł
       </button>
     </form>
-
-    <dialog
-      id="resultDialog"
-      class="bg-gray-200 text-red-600 p-6 rounded mt-6"
-    >
-      <button
-        id="closeDialog"
-        class="float-right text-black"
-      >
-        X
-      </button>
-
-      <p id="resultText"></p>
-    </dialog>
   </div>
 `
 
-const form = document.getElementById('birthForm')
-const dialog = document.getElementById('resultDialog')
-const resultText = document.getElementById('resultText')
-const closeDialog = document.getElementById('closeDialog')
+const articlesDiv = document.querySelector('#articles')
+const form = document.querySelector('#articleForm')
 
-form.addEventListener('submit', (e) => {
+async function getArticles() {
+  const { data, error } = await supabase
+    .from('article')
+    .select('*')
+    .order('created_at', { ascending: false })
+
+  if (error) {
+  console.log(error)
+  alert(JSON.stringify(error))
+  articlesDiv.innerHTML = '<p>Błąd pobierania artykułów</p>'
+  return
+}
+
+  articlesDiv.innerHTML = ''
+
+  data.forEach((article) => {
+    articlesDiv.innerHTML += `
+      <div class="border p-4 rounded shadow">
+        <h2 class="text-xl font-bold">${article.title}</h2>
+        <h3 class="text-gray-600">${article.subtitle}</h3>
+        <p><strong>Autor:</strong> ${article.author}</p>
+        <p><strong>Data:</strong> ${article.created_at}</p>
+        <p class="mt-2">${article.content}</p>
+      </div>
+    `
+  })
+}
+
+form.addEventListener('submit', async (e) => {
   e.preventDefault()
 
-  const birthDate = document.getElementById('birthDate').value
+  const title = document.querySelector('#title').value
+  const subtitle = document.querySelector('#subtitle').value
+  const author = document.querySelector('#author').value
+  const content = document.querySelector('#content').value
 
-  const today = dayjs()
-  const birth = dayjs(birthDate)
+  const { error } = await supabase
+    .from('article')
+    .insert([
+      {
+        title,
+        subtitle,
+        author,
+        content
+      }
+    ])
 
-  const days = today.diff(birth, 'days')
-
-  let message = `Minęło ${days} dni od twojego urodzenia.`
-
-  if (
-    today.date() === birth.date() &&
-    today.month() === birth.month()
-  ) {
-    message += ' Wszystkiego najlepszego!'
+  if (error) {
+    console.log(error)
+    alert('Nie udało się dodać artykułu')
+    return
   }
 
-  resultText.textContent = message
-
-  dialog.showModal()
+  form.reset()
+  getArticles()
 })
 
-closeDialog.addEventListener('click', () => {
-  dialog.close()
-})
+getArticles()
